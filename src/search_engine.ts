@@ -24,12 +24,12 @@ export class SearchEngine {
         await InteractionUtils.randomDelay(config.minDelay, config.maxDelay);
         await PageActions.simulateNaturalScrolling(page, config);
 
-        const pageResults = await extractPageLinks(page);
+        const pageResults = await extractPageLinks(page, 1);
         allResults.push(...pageResults);
 
         pagesProcessed++;
         if (pagesProcessed < config.numPages) {
-          const nextButton = await page.locator('a#pnnext').first();
+          const nextButton = page.locator('a#pnnext').first();
           if (await nextButton.isVisible()) {
             await nextButton.click();
             await page.waitForLoadState('networkidle');

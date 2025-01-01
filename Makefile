@@ -1,17 +1,7 @@
-# Define the image name
-IMAGE_NAME = playwright-app
-
-# Build and run using Docker Compose
 build:
-	docker compose build
+	npm run build
 
 run:
-	docker compose run --rm playwright
+	npm start
 
-# Build and run in one command
 start: build run
-
-# Clean up Docker images and containers
-clean:
-	docker compose down --rmi all
-	docker compose rm -f

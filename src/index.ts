@@ -1,5 +1,6 @@
 import { SearchConfig } from './types';
 import { SearchEngine } from './search_engine';
+import { Server } from './api/server';
 
 const defaultSearchConfig: SearchConfig = {
   query: '',
@@ -8,7 +9,7 @@ const defaultSearchConfig: SearchConfig = {
   maxDelay: 3,
 };
 
-async function main(): Promise<void> {
+async function runCLI(): Promise<void> {
   const searches: SearchConfig[] = [
     { ...defaultSearchConfig, query: 'laporan keuangan bbri', numPages: 1 },
   ];
@@ -19,6 +20,17 @@ async function main(): Promise<void> {
   }
 }
 
+function startServer(): void {
+  const server = new Server(3000);
+  server.start();
+}
+
 if (require.main === module) {
-  main().catch(console.error);
+  // const args = process.argv.slice(2);
+  // if (args.includes('--api')) {
+  //   startServer();
+  // } else {
+  //   runCLI().catch(console.error);
+  // }
+  startServer();
 }

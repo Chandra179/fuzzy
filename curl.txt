@@ -1,0 +1,9 @@
+# Start a search
+curl -X POST http://localhost:3000/api/search \
+  -H "Content-Type: application/json" \
+  -d '{"query": "laporan keuangan bbri", "numPages": 1}'
+
+# Process results
+curl -X POST http://localhost:3000/api/process-results \
+  -H "Content-Type: application/json" \
+  -d '{"filePath": "search_results_laporan_keuangan_bbri.json"}'

@@ -18,9 +18,21 @@ export interface SearchResponse {
   results: SearchResult[];
 }
 
+export interface ProcessedResult {
+  originalUrl: string;
+  extractedLinks: SearchResult[];
+  error?: string;
+}
+
 export interface BrowserConfig {
   headless: boolean;
   viewport: { width: number; height: number };
   userAgent: string;
   locale: string;
+}
+
+export interface ApiResponse<T> {
+  success: boolean;
+  data?: T;
+  error?: string;
 }

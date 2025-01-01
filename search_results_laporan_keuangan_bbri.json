@@ -1,56 +1,11 @@
 {
   "query": "laporan keuangan bbri",
   "pagesProcessed": 1,
-  "totalLinks": 10,
+  "totalLinks": 1,
   "results": [
     {
       "url": "https://bri.co.id/report",
       "text": "Laporan Kinerja Perbankan Tahunan\nBRI\nhttps://bri.co.id › report",
-      "source": "visible"
-    },
-    {
-      "url": "https://www.idx.co.id/id/perusahaan-tercatat/profil-perusahaan-tercatat/BBRI",
-      "text": "Profil Perusahaan Tercatat\nPT Bursa Efek Indonesia\nhttps://www.idx.co.id › profil-perusahaan-tercatat › BBRI",
-      "source": "visible"
-    },
-    {
-      "url": "https://www.ir-bri.com/download.html",
-      "text": "PT. Bank Rakyat Indonesia (Persero) Tbk.\nPT. Bank Rakyat Indonesia (Persero) Tbk. - Investor Relations\nhttps://www.ir-bri.com › download",
-      "source": "visible"
-    },
-    {
-      "url": "https://investor.id/market/384828/giliran-bri-bbri-rilis-lapkeu-laba-tembus-rp-50-triliun",
-      "text": "Giliran BRI (BBRI) Rilis Lapkeu, Laba Tembus Rp 50 Triliun\ninvestor.id\nhttps://investor.id › market › giliran-bri-bbri-rilis-lapkeu-...",
-      "source": "visible"
-    },
-    {
-      "url": "https://id.tradingview.com/symbols/IDX-BBRI/financials-income-statement/",
-      "text": "Laporan laba rugi BANK RAKYAT INDONESIA – IDX:BBRI\nTradingView – Melacak Seluruh Pasar\nhttps://id.tradingview.com › ... › Bank Regional › BBRI",
-      "source": "visible"
-    },
-    {
-      "url": "https://bri.co.id/en/report-detail-annually?typeId=1",
-      "text": "Annual Report\nBRI\nhttps://bri.co.id › report-detail-annually",
-      "source": "visible"
-    },
-    {
-      "url": "https://emiten.kontan.co.id/perusahaan/71/PT-Bank-Rakyat-Indonesia-Persero-Tbk",
-      "text": "PT Bank Rakyat Indonesia (Persero) Tbk (BBRI)\nkontan.co.id\nhttps://emiten.kontan.co.id › perusahaan › PT-Bank-Ra...",
-      "source": "visible"
-    },
-    {
-      "url": "https://www.ir-bri.com/ar.html",
-      "text": "Investor Relations: Annual Reports\nPT. Bank Rakyat Indonesia (Persero) Tbk. - Investor Relations\nhttps://www.ir-bri.com › ...",
-      "source": "visible"
-    },
-    {
-      "url": "https://m.id.investing.com/equities/bank-rakyat-in-financial-summary",
-      "text": "Ringkasan Keuangan Bank Rakyat Indonesia Persero (BBRI)\nInvesting.com Indonesia\nhttps://m.id.investing.com › equities › bank-rakyat-in-fi...",
-      "source": "visible"
-    },
-    {
-      "url": "https://www.idx.co.id/id/perusahaan-tercatat/laporan-keuangan-dan-tahunan",
-      "text": "Laporan Keuangan dan Tahunan\nPT Bursa Efek Indonesia\nhttps://www.idx.co.id › perusahaan-tercatat › laporan-k...",
       "source": "visible"
     }
   ]

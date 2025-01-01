@@ -1,193 +1,10 @@
-import { Page, ElementHandle } from 'playwright';
-import { SearchResult } from './types';
+import { Page } from 'playwright';
+import { chromium } from '@playwright/test';
+import { promises as fs } from 'fs';
+import { SearchResult, ProcessedResult, SearchResponse } from './types';
 
-async function isElementVisible(element: ElementHandle): Promise<boolean> {
-  try {
-    return await element.evaluate((el: Node) => {
-      if (!(el instanceof HTMLElement)) return false;
-
-      const style = window.getComputedStyle(el);
-      const rect = el.getBoundingClientRect();
-
-      return (
-        style.display !== 'none' &&
-        style.visibility !== 'hidden' &&
-        style.opacity !== '0' &&
-        rect.width > 0 &&
-        rect.height > 0 &&
-        el.offsetParent !== null
-      );
-    });
-  } catch {
-    return false;
-  }
-}
-
-async function attemptInteraction(page: Page, element: ElementHandle): Promise<boolean> {
-  try {
-    // Try using JavaScript click first
-    await element.evaluate((el: Node) => {
-      if (el instanceof HTMLElement) {
-        el.click();
-      }
-    });
-    await page.waitForTimeout(100);
-
-    // Check if interaction was successful
-    const isExpanded = await element.evaluate((el: Node) => {
-      if (!(el instanceof HTMLElement)) return false;
-      const expanded = el.getAttribute('aria-expanded');
-      const hasVisibleMenu = el.querySelector('.dropdown-menu, [role="menu"]');
-      return expanded === 'true' || hasVisibleMenu !== null;
-    });
-
-    if (isExpanded) return true;
-
-    // Try forcing pointer events
-    await element.evaluate((el: Node) => {
-      if (el instanceof HTMLElement) {
-        const parent = el.closest('[class*="dropdown"]') || el;
-        if (parent instanceof HTMLElement) {
-          parent.style.pointerEvents = 'auto';
-          parent.style.zIndex = '99999';
-        }
-      }
-    });
-
-    // Try direct click with force option
-    await element.click({ force: true, timeout: 1000 });
-    await page.waitForTimeout(100);
-
-    return true;
-  } catch (error) {
-    try {
-      // As a last resort, try keyboard navigation
-      await element.focus();
-      await page.keyboard.press('Enter');
-      await page.waitForTimeout(100);
-      return true;
-    } catch {
-      return false;
-    }
-  }
-}
-
-async function handleSelect(page: Page, select: ElementHandle): Promise<SearchResult[]> {
+export async function extractPageLinks(page: Page, maxLinks: number): Promise<SearchResult[]> {
   const results: SearchResult[] = [];
-
-  try {
-    const isVisible = await isElementVisible(select);
-    if (!isVisible) return results;
-
-    const isMultiple = await select.evaluate((el: Node) => {
-      return el instanceof HTMLSelectElement ? el.multiple : false;
-    });
-
-    const options = await select.evaluate((el: Node) => {
-      if (!(el instanceof HTMLSelectElement)) return [];
-      return Array.from(el.options).map((option) => ({
-        value: option.value,
-        text: option.text,
-        selected: option.selected,
-      }));
-    });
-
-    if (isMultiple) {
-      await select.selectOption(
-        options.map((opt) => opt.value),
-        { force: true, timeout: 2000 },
-      );
-    } else if (options.length > 0) {
-      await select.selectOption(options[options.length - 1].value, { force: true, timeout: 2000 });
-    }
-
-    const newLinks = await page.evaluate(() => {
-      const links = Array.from(document.querySelectorAll('a'));
-      return links
-        .filter((link): link is HTMLAnchorElement => link instanceof HTMLAnchorElement)
-        .map((link) => ({
-          url: link.href,
-          text: link.textContent?.trim() || '',
-          source: 'select',
-        }));
-    });
-
-    results.push(...newLinks);
-  } catch (error) {
-    console.warn('Error handling select element:', error);
-  }
-
-  return results;
-}
-
-async function handleDropdownMenu(page: Page, trigger: ElementHandle): Promise<SearchResult[]> {
-  const results: SearchResult[] = [];
-
-  try {
-    const isVisible = await isElementVisible(trigger);
-    if (!isVisible) return results;
-
-    const interactionSuccessful = await attemptInteraction(page, trigger);
-    if (!interactionSuccessful) return results;
-
-    const dropdownLinks = await page.evaluate(() => {
-      const menuSelectors = [
-        '.dropdown-menu a',
-        '[role="menu"] a',
-        '.menu-items a',
-        '[aria-expanded="true"] ~ * a',
-        '[class*="dropdown"] a',
-        '[class*="menu"] a',
-      ];
-
-      const links = Array.from(document.querySelectorAll(menuSelectors.join(',')));
-      return links
-        .filter((link): link is HTMLAnchorElement => {
-          if (!(link instanceof HTMLAnchorElement)) return false;
-          const style = window.getComputedStyle(link);
-          return style.display !== 'none' && style.visibility !== 'hidden';
-        })
-        .map((link) => ({
-          url: link.href,
-          text: link.textContent?.trim() || '',
-          source: 'dropdown',
-        }))
-        .filter((link) => link.url && link.url.startsWith('http'));
-    });
-
-    results.push(...dropdownLinks);
-  } catch (error) {
-    console.warn('Error handling dropdown:', error);
-  }
-
-  return results;
-}
-
-export async function extractPageLinks(page: Page): Promise<SearchResult[]> {
-  const results: SearchResult[] = [];
-
-  const dropdownTriggers = await page.$$(
-    [
-      '[aria-haspopup="true"]',
-      '[data-toggle="dropdown"]',
-      '.dropdown-toggle',
-      'button.dropdown',
-      '[class*="dropdown"]',
-      '[role="combobox"]',
-      '[class*="select"]',
-    ].join(','),
-  );
-
-  // for (const trigger of dropdownTriggers) {
-  //   const dropdownResults = await handleDropdownMenu(page, trigger);
-  //   results.push(...dropdownResults);
-  // }
-
-  // const selects = await page.$$('select');
-  // for (const select of selects) {
-  //   const selectResults = await handleSelect(page, select);
-  //   results.push(...selectResults);
-  // }
 
   const visibleLinks = await page.evaluate(() => {
     const links = Array.from(document.querySelectorAll('a, button[href], [role="link"]'));
@@ -228,7 +45,163 @@ export async function extractPageLinks(page: Page): Promise<SearchResult[]> {
 
   results.push(...visibleLinks);
 
+  // Ensure links are unique
   const uniqueResults = Array.from(new Map(results.map((item) => [item.url, item])).values());
 
-  return uniqueResults;
+  // Limit to the specified maxLinks
+  return uniqueResults.slice(0, maxLinks);
+}
+
+export async function handleDropdowns(page: Page): Promise<void> {
+  try {
+    // Handle standard select elements
+    const selects = await page.$$('select');
+    for (const select of selects) {
+      const isMultiple = await select.evaluate((el: HTMLSelectElement) => el.multiple);
+      const options = await select.evaluate((select: HTMLSelectElement) => {
+        return Array.from(select.options).map((opt) => ({
+          value: opt.value,
+          text: opt.text.toLowerCase(),
+        }));
+      });
+
+      if (options.length === 0) continue;
+
+      if (isMultiple) {
+        // Select all options for multiple select
+        await select.selectOption(options.map((opt) => opt.value));
+      } else {
+        // For single select, prefer "All" option or last option
+        const allOption = options.find(
+          (opt) =>
+            opt.text.includes('all') || opt.text.includes('semua') || opt.text.includes('seluruh'),
+        );
+
+        if (allOption) {
+          await select.selectOption(allOption.value);
+        } else {
+          await select.selectOption(options[options.length - 1].value);
+        }
+      }
+
+      // Wait for potential content updates
+      await page.waitForLoadState('networkidle', { timeout: 5000 }).catch(() => {});
+    }
+
+    // Handle custom dropdowns
+    const dropdownTriggers = await page.$$(
+      [
+        '[role="combobox"]',
+        '[aria-haspopup="listbox"]',
+        '.dropdown-toggle',
+        '[data-toggle="dropdown"]',
+        '[class*="dropdown"]',
+        '[class*="select"]',
+      ].join(','),
+    );
+
+    for (const trigger of dropdownTriggers) {
+      try {
+        // Try to click the dropdown trigger
+        await trigger.click({ timeout: 2000 });
+        await page.waitForTimeout(500);
+
+        // Look for checkboxes within the dropdown
+        const checkboxes = await page.$$('input[type="checkbox"]');
+        if (checkboxes.length > 0) {
+          // Select all checkboxes
+          for (const checkbox of checkboxes) {
+            await checkbox.check();
+          }
+        } else {
+          // Look for dropdown items
+          const items = await page.$$('[role="option"], .dropdown-item');
+          if (items.length > 0) {
+            // Click the last item or one with "All"
+            const allItem = await page.$('text=/all|semua|seluruh/i');
+            if (allItem) {
+              await allItem.click();
+            } else {
+              await items[items.length - 1].click();
+            }
+          }
+        }
+
+        // Wait for potential content updates
+        await page.waitForLoadState('networkidle', { timeout: 5000 }).catch(() => {});
+      } catch (error) {
+        console.warn(`Failed to interact with dropdown: ${error}`);
+        continue;
+      }
+    }
+  } catch (error) {
+    console.warn(`Error handling dropdowns: ${error}`);
+  }
+}
+
+async function processUrl(page: Page, url: string): Promise<ProcessedResult> {
+  try {
+    await page.goto(url, { waitUntil: 'networkidle', timeout: 30000 });
+
+    // Handle initial dropdowns
+    await handleDropdowns(page);
+
+    // Extract links after dropdown interaction
+    const extractedLinks = await extractPageLinks(page, Infinity);
+
+    return {
+      originalUrl: url,
+      extractedLinks,
+    };
+  } catch (error) {
+    return {
+      originalUrl: url,
+      extractedLinks: [],
+      error: error instanceof Error ? error.message : 'Unknown error occurred',
+    };
+  }
+}
+
+export async function processSearchResults(jsonFilePath: string): Promise<void> {
+  const jsonContent = await fs.readFile(jsonFilePath, 'utf-8');
+  const searchResponse: SearchResponse = JSON.parse(jsonContent);
+
+  const browser = await chromium.launch({
+    headless: true,
+  });
+
+  const context = await browser.newContext({
+    viewport: { width: 1920, height: 1080 },
+    userAgent:
+      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+  });
+
+  const page = await context.newPage();
+  const processedResults: ProcessedResult[] = [];
+
+  try {
+    for (const result of searchResponse.results) {
+      console.log(`Processing URL: ${result.url}`);
+      const processed = await processUrl(page, result.url);
+      processedResults.push(processed);
+    }
+
+    // Save processed results
+    const outputPath = jsonFilePath.replace('.json', '_processed.json');
+    await fs.writeFile(
+      outputPath,
+      JSON.stringify(
+        {
+          originalQuery: searchResponse.query,
+          processedResults,
+        },
+        null,
+        2,
+      ),
+    );
+
+    console.log(`Results saved to: ${outputPath}`);
+  } finally {
+    await browser.close();
+  }
 }

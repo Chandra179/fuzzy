@@ -36,3 +36,10 @@ export interface ApiResponse<T> {
   data?: T;
   error?: string;
 }
+
+export const defaultSearchConfig: SearchConfig = {
+  query: '',
+  numPages: 5,
+  minDelay: 1,
+  maxDelay: 3,
+};

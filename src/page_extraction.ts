@@ -1,7 +1,8 @@
 import { Page } from 'playwright';
+import { PageActions } from './page_actions';
 import { chromium } from '@playwright/test';
 import { promises as fs } from 'fs';
-import { SearchResult, ProcessedResult, SearchResponse } from './types';
+import { SearchResult, ProcessedResult, SearchResponse, defaultSearchConfig } from './types';
 
 export async function extractPageLinks(page: Page, maxLinks: number): Promise<SearchResult[]> {
   const results: SearchResult[] = [];
@@ -57,35 +58,42 @@ export async function handleDropdowns(page: Page): Promise<void> {
     // Handle standard select elements
     const selects = await page.$$('select');
     for (const select of selects) {
-      const isMultiple = await select.evaluate((el: HTMLSelectElement) => el.multiple);
-      const options = await select.evaluate((select: HTMLSelectElement) => {
-        return Array.from(select.options).map((opt) => ({
-          value: opt.value,
-          text: opt.text.toLowerCase(),
-        }));
-      });
+      try {
+        const isMultiple = await select.evaluate((el: HTMLSelectElement) => el.multiple);
+        const options = await select.evaluate((select: HTMLSelectElement) => {
+          return Array.from(select.options).map((opt) => ({
+            value: opt.value,
+            text: opt.text.toLowerCase(),
+          }));
+        });
 
-      if (options.length === 0) continue;
+        if (options.length === 0) continue;
 
-      if (isMultiple) {
-        // Select all options for multiple select
-        await select.selectOption(options.map((opt) => opt.value));
-      } else {
-        // For single select, prefer "All" option or last option
-        const allOption = options.find(
-          (opt) =>
-            opt.text.includes('all') || opt.text.includes('semua') || opt.text.includes('seluruh'),
-        );
-
-        if (allOption) {
-          await select.selectOption(allOption.value);
+        if (isMultiple) {
+          // Select all options for multiple select
+          await select.selectOption(options.map((opt) => opt.value));
         } else {
-          await select.selectOption(options[options.length - 1].value);
-        }
-      }
+          // For single select, prefer "All" option or last option
+          const allOption = options.find(
+            (opt) =>
+              opt.text.includes('all') ||
+              opt.text.includes('semua') ||
+              opt.text.includes('seluruh'),
+          );
 
-      // Wait for potential content updates
-      await page.waitForLoadState('networkidle', { timeout: 5000 }).catch(() => {});
+          if (allOption) {
+            await select.selectOption(allOption.value);
+          } else {
+            await select.selectOption(options[options.length - 1].value);
+          }
+        }
+
+        // Wait for potential content updates
+        await page.waitForLoadState('networkidle', { timeout: 5000 }).catch(() => {});
+      } catch (error) {
+        console.warn(`Failed to interact with <select>: ${error}`);
+        continue;
+      }
     }
 
     // Handle custom dropdowns
@@ -102,6 +110,17 @@ export async function handleDropdowns(page: Page): Promise<void> {
 
     for (const trigger of dropdownTriggers) {
       try {
+        if (!(await trigger.isVisible())) {
+          console.warn('Dropdown trigger is not visible');
+          continue;
+        }
+
+        // Verify if the element is still attached to the DOM
+        if (!(await trigger.evaluate((el) => document.body.contains(el)))) {
+          console.warn('Dropdown trigger is not attached to the DOM');
+          continue;
+        }
+
         // Try to click the dropdown trigger
         await trigger.click({ timeout: 2000 });
         await page.waitForTimeout(500);
@@ -111,18 +130,28 @@ export async function handleDropdowns(page: Page): Promise<void> {
         if (checkboxes.length > 0) {
           // Select all checkboxes
           for (const checkbox of checkboxes) {
-            await checkbox.check();
+            try {
+              if (await checkbox.isVisible()) {
+                await checkbox.check();
+              }
+            } catch (error) {
+              console.warn(`Failed to check checkbox: ${error}`);
+            }
           }
         } else {
           // Look for dropdown items
           const items = await page.$$('[role="option"], .dropdown-item');
           if (items.length > 0) {
-            // Click the last item or one with "All"
-            const allItem = await page.$('text=/all|semua|seluruh/i');
-            if (allItem) {
-              await allItem.click();
-            } else {
-              await items[items.length - 1].click();
+            try {
+              // Click the last item or one with "All"
+              const allItem = await page.$('text=/all|semua|seluruh/i');
+              if (allItem) {
+                await allItem.click();
+              } else {
+                await items[items.length - 1].click();
+              }
+            } catch (error) {
+              console.warn(`Failed to interact with dropdown item: ${error}`);
             }
           }
         }
@@ -142,9 +171,10 @@ export async function handleDropdowns(page: Page): Promise<void> {
 async function processUrl(page: Page, url: string): Promise<ProcessedResult> {
   try {
     await page.goto(url, { waitUntil: 'networkidle', timeout: 30000 });
+    await PageActions.simulateNaturalScrolling(page, defaultSearchConfig);
 
     // Handle initial dropdowns
-    await handleDropdowns(page);
+    // await handleDropdowns(page);
 
     // Extract links after dropdown interaction
     const extractedLinks = await extractPageLinks(page, Infinity);

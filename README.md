@@ -1,1 +1,1 @@
-# stockz
+# Fuzzy
